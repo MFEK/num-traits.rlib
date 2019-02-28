@@ -19,6 +19,9 @@ features = ["std"]
 [dependencies]
 libm = { version = "0.2.0", optional = true }
 
+[build-dependencies]
+rustc_version = "0.2"
+
 [features]
 default = ["std"]
 std = []
@@ -28,3 +31,4 @@ const_conversion = []
 
 [build-dependencies]
 autocfg = "1"
+int_to_from_bytes = []
