@@ -1,4 +1,4 @@
-use core::ops::{Add, Mul, Sub};
+use core::ops::{Add, Mul, Sub, Div};
 #[cfg(has_i128)]
 use core::{i128, u128};
 use core::{i16, i32, i64, i8, isize};
@@ -84,6 +84,29 @@ overflowing_impl!(OverflowingMul, overflowing_mul, isize);
 #[cfg(has_i128)]
 overflowing_impl!(OverflowingMul, overflowing_mul, i128);
 
+/// Performs division with a flag for overflow.
+pub trait OverflowingDiv: Sized + Div<Self, Output= Self> {
+    ///Calculates the divisor when self is divided by rhs.
+    /// Returns a tuple of the divisor along with a boolean indicating whether an arithmetic overflow would occur.
+    fn overflowing_div(&self, v: &Self) -> (Self, bool);
+}
+
+overflowing_impl!(OverflowingDiv, overflowing_div, u8);
+overflowing_impl!(OverflowingDiv, overflowing_div, u16);
+overflowing_impl!(OverflowingDiv, overflowing_div, u32);
+overflowing_impl!(OverflowingDiv, overflowing_div, u64);
+overflowing_impl!(OverflowingDiv, overflowing_div, usize);
+#[cfg(has_i128)]
+overflowing_impl!(OverflowingDiv, overflowing_div, u128);
+
+overflowing_impl!(OverflowingDiv, overflowing_div, i8);
+overflowing_impl!(OverflowingDiv, overflowing_div, i16);
+overflowing_impl!(OverflowingDiv, overflowing_div, i32);
+overflowing_impl!(OverflowingDiv, overflowing_div, i64);
+overflowing_impl!(OverflowingDiv, overflowing_div, isize);
+#[cfg(has_i128)]
+overflowing_impl!(OverflowingDiv, overflowing_div, i128);
+
 #[test]
 fn test_overflowing_traits() {
     fn overflowing_add<T: OverflowingAdd>(a: T, b: T) -> (T, bool) {
@@ -95,10 +118,15 @@ fn test_overflowing_traits() {
     fn overflowing_mul<T: OverflowingMul>(a: T, b: T) -> (T, bool) {
         a.overflowing_mul(&b)
     }
+    fn overflowing_div<T: OverflowingDiv>(a: T, b: T) -> (T, bool) {
+        a.overflowing_div(&b)
+    }
     assert_eq!(overflowing_add(5i16, 2), (7, false));
     assert_eq!(overflowing_add(i16::MAX, 1), (i16::MIN, true));
     assert_eq!(overflowing_sub(5i16, 2), (3, false));
     assert_eq!(overflowing_sub(i16::MIN, 1), (i16::MAX, true));
     assert_eq!(overflowing_mul(5i16, 2), (10, false));
     assert_eq!(overflowing_mul(1_000_000_000i32, 10), (1410065408, true));
+    assert_eq!(overflowing_div(4,2),(2,false));
+    assert_eq!(overflowing_div(i16::MIN, -1),(i16::MIN,true));
 }
