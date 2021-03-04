@@ -38,6 +38,10 @@ fn main() {
 
     ac.emit_expression_cfg("1u32.reverse_bits()", "has_reverse_bits");
     ac.emit_expression_cfg("1u32.trailing_ones()", "has_leading_trailing_ones");
+    ac.emit_expression_cfg(
+        "0x1234567890123456u64.to_ne_bytes()",
+        "has_int_to_from_bytes",
+    );
 
     autocfg::rerun_path("build.rs");
 }
