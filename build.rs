@@ -50,6 +50,10 @@ fn main() {
         "#,
         "has_const_trait_impl",
     );
+    ac.emit_expression_cfg(
+        "0x1234567890123456u64.to_ne_bytes()",
+        "has_int_to_from_bytes",
+    );
 
     autocfg::rerun_path("build.rs");
 }
