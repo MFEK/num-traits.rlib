@@ -27,6 +27,7 @@ std = []
 
 # vestigial features, now always in effect
 i128 = []
+copysign = []
 
 [build-dependencies]
 autocfg = "1"
