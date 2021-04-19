@@ -28,4 +28,3 @@ const_conversion = []
 
 [build-dependencies]
 autocfg = "1"
-int_to_from_bytes = []
