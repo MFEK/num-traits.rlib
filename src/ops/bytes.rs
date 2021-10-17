@@ -153,7 +153,10 @@ macro_rules! float_to_from_bytes_impl {
             }
         }
 
-        #[cfg(all(not(feature = "has_float_to_from_bytes"),feature="has_int_to_from_bytes"))]
+        #[cfg(all(
+            not(feature = "has_float_to_from_bytes"),
+            feature = "has_int_to_from_bytes"
+        ))]
         impl ToFromBytes for $T {
             type Bytes = [u8; $L];
 
