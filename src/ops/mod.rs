@@ -1,3 +1,4 @@
+pub mod bytes;
 pub mod checked;
 pub mod inv;
 pub mod mul_add;
