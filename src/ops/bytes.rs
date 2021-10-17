@@ -106,11 +106,12 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
-    /// let value = <u32 as ToFromBytes>::from_ne_bytes(if cfg!(target_endian = "big") {
-    ///     &[0x12, 0x34, 0x56, 0x78]
-    /// } else {
-    ///     &[0x78, 0x56, 0x34, 0x12]
-    /// });
+    /// #[cfg(target_endian = "big")]
+    /// let bytes = [0x12, 0x34, 0x56, 0x78];
+    /// #[cfg(not(target_endian = "big"))]
+    /// let bytes = [0x78, 0x56, 0x34, 0x12];
+    ///
+    /// let value = <u32 as ToFromBytes>::from_ne_bytes(&bytes);
     /// assert_eq!(value, 0x12345678);
     /// ```
     fn from_ne_bytes(bytes: &Self::Bytes) -> Self;
