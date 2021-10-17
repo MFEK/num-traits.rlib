@@ -1,5 +1,3 @@
-#![cfg(has_int_to_from_bytes)]
-
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::{Eq, Ord, PartialEq, PartialOrd};
 use core::fmt::Debug;
@@ -26,8 +24,10 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
+    /// # #[cfg(has_int_to_from_bytes)] {
     /// let bytes = 0x12345678u32.to_be_bytes();
     /// assert_eq!(bytes, [0x12, 0x34, 0x56, 0x78]);
+    /// }
     /// ```
     fn to_be_bytes(&self) -> Self::Bytes;
 
@@ -38,8 +38,10 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
+    /// # #[cfg(has_int_to_from_bytes)] {
     /// let bytes = 0x12345678u32.to_le_bytes();
     /// assert_eq!(bytes, [0x78, 0x56, 0x34, 0x12]);
+    /// }
     /// ```
     fn to_le_bytes(&self) -> Self::Bytes;
 
@@ -56,12 +58,14 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
+    /// # #[cfg(has_int_to_from_bytes)] {
     /// let bytes = 0x12345678u32.to_ne_bytes();
     /// assert_eq!(bytes, if cfg!(target_endian = "big") {
     ///     [0x12, 0x34, 0x56, 0x78]
     /// } else {
     ///     [0x78, 0x56, 0x34, 0x12]
     /// });
+    /// }
     /// ```
     fn to_ne_bytes(&self) -> Self::Bytes;
 
@@ -72,7 +76,7 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
-    /// let value = u32::from_be_bytes([0x12, 0x34, 0x56, 0x78]);
+    /// let value = <u32 as ToFromBytes>::from_be_bytes(&[0x12, 0x34, 0x56, 0x78]);
     /// assert_eq!(value, 0x12345678);
     /// ```
     fn from_be_bytes(bytes: &Self::Bytes) -> Self;
@@ -84,7 +88,7 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
-    /// let value = u32::from_le_bytes([0x78, 0x56, 0x34, 0x12]);
+    /// let value = <u32 as ToFromBytes>::from_le_bytes(&[0x78, 0x56, 0x34, 0x12]);
     /// assert_eq!(value, 0x12345678);
     /// ```
     fn from_le_bytes(bytes: &Self::Bytes) -> Self;
@@ -102,10 +106,10 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
-    /// let value = u32::from_ne_bytes(if cfg!(target_endian = "big") {
-    ///     [0x12, 0x34, 0x56, 0x78]
+    /// let value = <u32 as ToFromBytes>::from_ne_bytes(if cfg!(target_endian = "big") {
+    ///     &[0x12, 0x34, 0x56, 0x78]
     /// } else {
-    ///     [0x78, 0x56, 0x34, 0x12]
+    ///     &[0x78, 0x56, 0x34, 0x12]
     /// });
     /// assert_eq!(value, 0x12345678);
     /// ```
@@ -149,7 +153,10 @@ macro_rules! float_to_from_bytes_impl {
             }
         }
 
-        #[cfg(not(feature = "has_float_to_from_bytes"))]
+        #[cfg(all(
+            not(feature = "has_float_to_from_bytes"),
+            feature = "has_int_to_from_bytes"
+        ))]
         impl ToFromBytes for $T {
             type Bytes = [u8; $L];
 
@@ -331,6 +338,7 @@ mod tests {
         check_to_from_bytes!(i128 u128);
     }
 
+    #[cfg(feature = "has_float_to_from_bytes")]
     #[test]
     fn convert_between_float_and_bytes() {
         macro_rules! check_to_from_bytes {
