@@ -24,10 +24,13 @@ pub trait ToFromBytes {
     /// ```
     /// use num_traits::ToFromBytes;
     ///
-    /// # #[cfg(has_int_to_from_bytes)] {
+    /// # #[cfg(has_int_to_from_bytes)]
+    /// # fn main() {
     /// let bytes = 0x12345678u32.to_be_bytes();
     /// assert_eq!(bytes, [0x12, 0x34, 0x56, 0x78]);
-    /// }
+    /// # }
+    /// # #[cfg(not(has_int_to_from_bytes))]
+    /// # fn main() {}
     /// ```
     fn to_be_bytes(&self) -> Self::Bytes;
 
@@ -37,11 +40,14 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
-    ///
-    /// # #[cfg(has_int_to_from_bytes)] {
+    /// 
+    /// # #[cfg(has_int_to_from_bytes)]
+    /// # fn main() {
     /// let bytes = 0x12345678u32.to_le_bytes();
     /// assert_eq!(bytes, [0x78, 0x56, 0x34, 0x12]);
-    /// }
+    /// # }
+    /// # #[cfg(not(has_int_to_from_bytes))]
+    /// # fn main() {}
     /// ```
     fn to_le_bytes(&self) -> Self::Bytes;
 
@@ -57,15 +63,20 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
+    /// 
+    /// # #[cfg(has_int_to_from_bytes)]
+    /// # fn main() {
+    /// #[cfg(target_endian = "big")]
+    /// let expected = [0x12, 0x34, 0x56, 0x78];
     ///
-    /// # #[cfg(has_int_to_from_bytes)] {
+    /// #[cfg(not(target_endian = "big"))]
+    /// let expected = [0x78, 0x56, 0x34, 0x12];
+    ///
     /// let bytes = 0x12345678u32.to_ne_bytes();
-    /// assert_eq!(bytes, if cfg!(target_endian = "big") {
-    ///     [0x12, 0x34, 0x56, 0x78]
-    /// } else {
-    ///     [0x78, 0x56, 0x34, 0x12]
-    /// });
-    /// }
+    /// assert_eq!(bytes, expected)
+    /// # }
+    /// # #[cfg(not(has_int_to_from_bytes))]
+    /// # fn main() {}
     /// ```
     fn to_ne_bytes(&self) -> Self::Bytes;
 
@@ -105,14 +116,20 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
-    ///
+    /// 
+    /// # #[cfg(has_int_to_from_bytes)]
+    /// # fn main() {
     /// #[cfg(target_endian = "big")]
     /// let bytes = [0x12, 0x34, 0x56, 0x78];
+    ///
     /// #[cfg(not(target_endian = "big"))]
     /// let bytes = [0x78, 0x56, 0x34, 0x12];
     ///
     /// let value = <u32 as ToFromBytes>::from_ne_bytes(&bytes);
-    /// assert_eq!(value, 0x12345678);
+    /// assert_eq!(value, 0x12345678)
+    /// # }
+    /// # #[cfg(not(has_int_to_from_bytes))]
+    /// # fn main() {}
     /// ```
     fn from_ne_bytes(bytes: &Self::Bytes) -> Self;
 }
