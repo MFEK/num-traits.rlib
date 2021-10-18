@@ -40,7 +40,7 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
-    /// 
+    ///
     /// # #[cfg(has_int_to_from_bytes)]
     /// # fn main() {
     /// let bytes = 0x12345678u32.to_le_bytes();
@@ -63,7 +63,7 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
-    /// 
+    ///
     /// # #[cfg(has_int_to_from_bytes)]
     /// # fn main() {
     /// #[cfg(target_endian = "big")]
@@ -116,7 +116,7 @@ pub trait ToFromBytes {
     ///
     /// ```
     /// use num_traits::ToFromBytes;
-    /// 
+    ///
     /// # #[cfg(has_int_to_from_bytes)]
     /// # fn main() {
     /// #[cfg(target_endian = "big")]
