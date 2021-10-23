@@ -12,41 +12,43 @@
 //!
 //! ## Compatibility
 //!
-//! The `num-traits` crate is tested for rustc 1.31 and greater.
+//! The `num-traits` crate is tested for rustc 1.8 and greater.
 
 #![doc(html_root_url = "https://docs.rs/num-traits/0.2")]
 #![deny(unconditional_recursion)]
 #![no_std]
-
-// Need to explicitly bring the crate in for inherent float methods
+#![cfg_attr(feature = "const_conversion", feature(const_trait_impl))]
 #[cfg(feature = "std")]
 extern crate std;
+
+// Only `no_std` builds actually use `libm`.
+#[cfg(all(not(feature = "std"), feature = "libm"))]
+extern crate libm;
 
 use core::fmt;
 use core::num::Wrapping;
 use core::ops::{Add, Div, Mul, Rem, Sub};
 use core::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 
-pub use crate::bounds::Bounded;
+pub use bounds::Bounded;
 #[cfg(any(feature = "std", feature = "libm"))]
-pub use crate::float::Float;
-pub use crate::float::FloatConst;
+pub use float::Float;
+pub use float::FloatConst;
 // pub use real::{FloatCore, Real}; // NOTE: Don't do this, it breaks `use num_traits::*;`.
-pub use crate::cast::{cast, AsPrimitive, FromPrimitive, NumCast, ToPrimitive};
-pub use crate::identities::{one, zero, One, Zero};
-pub use crate::int::PrimInt;
-pub use crate::ops::checked::{
+pub use cast::{cast, AsPrimitive, FromPrimitive, NumCast, ToPrimitive};
+pub use identities::{one, zero, One, Zero};
+pub use int::PrimInt;
+pub use ops::checked::{
     CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl, CheckedShr, CheckedSub,
 };
-pub use crate::ops::euclid::{CheckedEuclid, Euclid};
-pub use crate::ops::inv::Inv;
-pub use crate::ops::mul_add::{MulAdd, MulAddAssign};
-pub use crate::ops::saturating::{Saturating, SaturatingAdd, SaturatingMul, SaturatingSub};
-pub use crate::ops::wrapping::{
+pub use ops::inv::Inv;
+pub use ops::mul_add::{MulAdd, MulAddAssign};
+pub use ops::saturating::{Saturating, SaturatingAdd, SaturatingMul, SaturatingSub};
+pub use ops::wrapping::{
     WrappingAdd, WrappingMul, WrappingNeg, WrappingShl, WrappingShr, WrappingSub,
 };
-pub use crate::pow::{checked_pow, pow, Pow};
-pub use crate::sign::{abs, abs_sub, signum, Signed, Unsigned};
+pub use pow::{checked_pow, pow, Pow};
+pub use sign::{abs, abs_sub, signum, Signed, Unsigned};
 
 #[macro_use]
 mod macros;
@@ -94,7 +96,7 @@ pub trait Num: PartialEq + Zero + One + NumOps {
     fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr>;
 }
 
-/// Generic trait for types implementing basic numeric operations
+/// The trait for types implementing basic numeric operations
 ///
 /// This is automatically implemented for types which implement the operators.
 pub trait NumOps<Rhs = Self, Output = Self>:
@@ -122,16 +124,14 @@ impl<T, Rhs, Output> NumOps<Rhs, Output> for T where
 pub trait NumRef: Num + for<'r> NumOps<&'r Self> {}
 impl<T> NumRef for T where T: Num + for<'r> NumOps<&'r T> {}
 
-/// The trait for `Num` references which implement numeric operations, taking the
+/// The trait for references which implement numeric operations, taking the
 /// second operand either by value or by reference.
 ///
-/// This is automatically implemented for all types which implement the operators. It covers
-/// every type implementing the operations though, regardless of it being a reference or
-/// related to `Num`.
+/// This is automatically implemented for types which implement the operators.
 pub trait RefNum<Base>: NumOps<Base, Base> + for<'r> NumOps<&'r Base, Base> {}
 impl<T, Base> RefNum<Base> for T where T: NumOps<Base, Base> + for<'r> NumOps<&'r Base, Base> {}
 
-/// Generic trait for types implementing numeric assignment operators (like `+=`).
+/// The trait for types implementing numeric assignment operators (like `+=`).
 ///
 /// This is automatically implemented for types which implement the operators.
 pub trait NumAssignOps<Rhs = Self>:
@@ -170,12 +170,17 @@ macro_rules! int_trait_impl {
         }
     )*)
 }
-int_trait_impl!(Num for usize u8 u16 u32 u64 u128);
-int_trait_impl!(Num for isize i8 i16 i32 i64 i128);
+int_trait_impl!(Num for usize u8 u16 u32 u64 isize i8 i16 i32 i64);
+#[cfg(has_i128)]
+int_trait_impl!(Num for u128 i128);
 
 impl<T: Num> Num for Wrapping<T>
 where
-    Wrapping<T>: NumOps,
+    Wrapping<T>: Add<Output = Wrapping<T>>
+        + Sub<Output = Wrapping<T>>
+        + Mul<Output = Wrapping<T>>
+        + Div<Output = Wrapping<T>>
+        + Rem<Output = Wrapping<T>>,
 {
     type FromStrRadixErr = T::FromStrRadixErr;
     fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
@@ -196,7 +201,7 @@ pub struct ParseFloatError {
 }
 
 impl fmt::Display for ParseFloatError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let description = match self.kind {
             FloatErrorKind::Empty => "cannot parse float from empty string",
             FloatErrorKind::Invalid => "invalid float literal",
@@ -252,7 +257,11 @@ macro_rules! float_trait_impl {
 
                 fn slice_shift_char(src: &str) -> Option<(char, &str)> {
                     let mut chars = src.chars();
-                    Some((chars.next()?, chars.as_str()))
+                    if let Some(ch) = chars.next() {
+                        Some((ch, chars.as_str()))
+                    } else {
+                        None
+                    }
                 }
 
                 let (is_positive, src) =  match slice_shift_char(src) {
@@ -275,13 +284,13 @@ macro_rules! float_trait_impl {
                     match c.to_digit(radix) {
                         Some(digit) => {
                             // shift significand one digit left
-                            sig *= radix as $t;
+                            sig = sig * (radix as $t);
 
                             // add/subtract current digit depending on sign
                             if is_positive {
-                                sig += (digit as isize) as $t;
+                                sig = sig + ((digit as isize) as $t);
                             } else {
-                                sig -= (digit as isize) as $t;
+                                sig = sig - ((digit as isize) as $t);
                             }
 
                             // Detect overflow by comparing to last value, except
@@ -323,7 +332,7 @@ macro_rules! float_trait_impl {
                         match c.to_digit(radix) {
                             Some(digit) => {
                                 // Decrease power one order of magnitude
-                                power /= radix as $t;
+                                power = power / (radix as $t);
                                 // add/subtract current digit depending on sign
                                 sig = if is_positive {
                                     sig + (digit as $t) * power
@@ -416,8 +425,8 @@ pub fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
 ///  `clamp_min(std::f32::NAN, 1.0)` preserves `NAN` different from `f32::min(std::f32::NAN, 1.0)`.
 ///
 /// **Panics** in debug mode if `!(min == min)`. (This occurs if `min` is `NAN`.)
-#[inline]
 #[allow(clippy::eq_op)]
+#[inline]
 pub fn clamp_min<T: PartialOrd>(input: T, min: T) -> T {
     debug_assert!(min == min, "min must not be NAN");
     if input < min {
@@ -434,8 +443,8 @@ pub fn clamp_min<T: PartialOrd>(input: T, min: T) -> T {
 ///  `clamp_max(std::f32::NAN, 1.0)` preserves `NAN` different from `f32::max(std::f32::NAN, 1.0)`.
 ///
 /// **Panics** in debug mode if `!(max == max)`. (This occurs if `max` is `NAN`.)
-#[inline]
 #[allow(clippy::eq_op)]
+#[inline]
 pub fn clamp_max<T: PartialOrd>(input: T, max: T) -> T {
     debug_assert!(max == max, "max must not be NAN");
     if input > max {
@@ -620,15 +629,5 @@ fn check_numassign_ops() {
     assert_eq!(compute(1, 2), 1)
 }
 
-#[test]
-fn check_numassignref_ops() {
-    fn compute<T: NumAssignRef + Copy>(mut x: T, y: &T) -> T {
-        x *= y;
-        x /= y;
-        x %= y;
-        x += y;
-        x -= y;
-        x
-    }
-    assert_eq!(compute(1, &2), 1)
-}
+// TODO test `NumAssignRef`, but even the standard numeric types don't
+// implement this yet. (see rust pr41336)

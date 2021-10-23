@@ -169,6 +169,7 @@ pub trait FloatCore: Num + NumCast + Neg<Output = Self> + PartialOrd + Copy {
     /// check(f64::NAN, true);
     /// check(0.0f64, false);
     /// ```
+    #[allow(clippy::eq_op)]
     #[inline]
     fn is_nan(self) -> bool {
         self != self
@@ -2358,6 +2359,7 @@ mod tests {
 
     #[cfg(any(feature = "std", feature = "libm"))]
     fn test_copysignf(p: f32, n: f32, nan: f32) {
+        #[cfg(not(feature = "std"))]
         use float::Float;
         use core::ops::Neg;
 

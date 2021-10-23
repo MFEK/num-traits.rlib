@@ -1,13 +1,22 @@
 //! Tests of `num_traits::cast`.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+#![cfg_attr(feature = "const_conversion", feature(const_trait_impl))]
+
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
+
+extern crate num_traits;
 
 use num_traits::cast::*;
 use num_traits::Bounded;
 
 use core::{f32, f64};
-use core::{i128, i16, i32, i64, i8, isize};
-use core::{u128, u16, u32, u64, u8, usize};
+#[cfg(has_i128)]
+use core::{i128, u128};
+use core::{i16, i32, i64, i8, isize};
+use core::{u16, u32, u64, u8, usize};
 
 use core::fmt::Debug;
 use core::mem;
@@ -70,6 +79,7 @@ fn wrapping_is_numcast() {
 }
 
 #[test]
+#[allow(clippy::approx_constant)]
 fn as_primitive() {
     let x: f32 = (1.625f64).as_();
     assert_eq!(x, 1.625f32);
@@ -139,6 +149,7 @@ fn cast_to_unsigned_int_checks_overflow() {
 }
 
 #[test]
+#[cfg(has_i128)]
 fn cast_to_i128_checks_overflow() {
     let big_f: f64 = 1.0e123;
     let normal_f: f64 = 1.0;
@@ -154,7 +165,7 @@ fn cast_to_i128_checks_overflow() {
 }
 
 #[cfg(feature = "std")]
-fn dbg(args: ::core::fmt::Arguments<'_>) {
+fn dbg(args: ::core::fmt::Arguments) {
     println!("{}", args);
 }
 
@@ -171,9 +182,9 @@ macro_rules! float_test_edge {
         let small = if $t::MIN == 0 || mem::size_of::<$t>() < mem::size_of::<$f>() {
             $t::MIN as $f - 1.0
         } else {
-            ($t::MIN as $f).raw_inc().floor()
+            ($t::MIN as $f).raw_offset(1).floor()
         };
-        let fmin = small.raw_dec();
+        let fmin = small.raw_offset(-1);
         dbg!("  testing min {}\n\tvs. {:.0}\n\tand {:.0}", $t::MIN, fmin, small);
         assert_eq!(Some($t::MIN), cast::<$f, $t>($t::MIN as $f));
         assert_eq!(Some($t::MIN), cast::<$f, $t>(fmin));
@@ -183,11 +194,11 @@ macro_rules! float_test_edge {
             ($t::MAX, $t::MAX as $f + 1.0)
         } else {
             let large = $t::MAX as $f; // rounds up!
-            let max = large.raw_dec() as $t; // the next smallest possible
+            let max = large.raw_offset(-1) as $t; // the next smallest possible
             assert_eq!(max.count_ones(), $f::MANTISSA_DIGITS);
             (max, large)
         };
-        let fmax = large.raw_dec();
+        let fmax = large.raw_offset(-1);
         dbg!("  testing max {}\n\tvs. {:.0}\n\tand {:.0}", max, fmax, large);
         assert_eq!(Some(max), cast::<$f, $t>(max as $f));
         assert_eq!(Some(max), cast::<$f, $t>(fmax));
@@ -201,27 +212,27 @@ macro_rules! float_test_edge {
 }
 
 trait RawOffset: Sized {
-    fn raw_inc(self) -> Self;
-    fn raw_dec(self) -> Self;
+    type Raw;
+    fn raw_offset(self, offset: Self::Raw) -> Self;
 }
 
 impl RawOffset for f32 {
-    fn raw_inc(self) -> Self {
-        Self::from_bits(self.to_bits() + 1)
-    }
-
-    fn raw_dec(self) -> Self {
-        Self::from_bits(self.to_bits() - 1)
+    type Raw = i32;
+    fn raw_offset(self, offset: Self::Raw) -> Self {
+        unsafe {
+            let raw: Self::Raw = mem::transmute(self);
+            mem::transmute(raw + offset)
+        }
     }
 }
 
 impl RawOffset for f64 {
-    fn raw_inc(self) -> Self {
-        Self::from_bits(self.to_bits() + 1)
-    }
-
-    fn raw_dec(self) -> Self {
-        Self::from_bits(self.to_bits() - 1)
+    type Raw = i64;
+    fn raw_offset(self, offset: Self::Raw) -> Self {
+        unsafe {
+            let raw: Self::Raw = mem::transmute(self);
+            mem::transmute(raw + offset)
+        }
     }
 }
 
@@ -234,6 +245,7 @@ fn cast_float_to_int_edge_cases() {
 }
 
 #[test]
+#[cfg(has_i128)]
 fn cast_float_to_i128_edge_cases() {
     float_test_edge!(f32 -> i128 u128);
     float_test_edge!(f64 -> i128 u128);
@@ -292,6 +304,7 @@ fn cast_int_to_int_edge_cases() {
 }
 
 #[test]
+#[cfg(has_i128)]
 fn cast_int_to_128_edge_cases() {
     use core::cmp::Ordering::*;
 
@@ -354,6 +367,10 @@ fn newtype_to_primitive() {
 
     // minimal impl
     impl<T: ToPrimitive> ToPrimitive for New<T> {
+        fn to_i8(&self) -> Option<i8> {
+            self.0.to_i8()
+        }
+
         fn to_i64(&self) -> Option<i64> {
             self.0.to_i64()
         }
@@ -383,4 +400,132 @@ fn newtype_to_primitive() {
     }
     check!(i8 i16 i32 i64 isize);
     check!(u8 u16 u32 u64 usize);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn valid_int_to_int_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: i64 = -42;
+    const EXPECTED: Option<i8> = Some(-42);
+
+    // When
+    const RESULT: Option<i8> = VALUE.to_i8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn valid_int_to_uint_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: i64 = 42;
+    const EXPECTED: Option<u8> = Some(42);
+
+    // When
+    const RESULT: Option<u8> = VALUE.to_u8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn valid_unt_to_uint_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: u64 = 42;
+    const EXPECTED: Option<u8> = Some(42);
+
+    // When
+    const RESULT: Option<u8> = VALUE.to_u8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn valid_unt_to_int_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: u64 = 42;
+    const EXPECTED: Option<i8> = Some(42);
+
+    // When
+    const RESULT: Option<i8> = VALUE.to_i8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn invalid_int_to_int_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: i64 = -129;
+    const EXPECTED: Option<i8> = None;
+
+    // When
+    const RESULT: Option<i8> = VALUE.to_i8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn invalid_int_to_uint_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: i64 = -1;
+    const EXPECTED: Option<u8> = None;
+
+    // When
+    const RESULT: Option<u8> = VALUE.to_u8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn invalid_unt_to_uint_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: u64 = 256;
+    const EXPECTED: Option<u8> = None;
+
+    // When
+    const RESULT: Option<u8> = VALUE.to_u8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
+}
+
+#[cfg(any(has_const_trait_impl, feature = "const_conversion"))]
+#[test]
+fn invalid_unt_to_int_const_cast_succeeds() {
+    use crate::ToPrimitive;
+
+    // Given
+    const VALUE: u64 = 128;
+    const EXPECTED: Option<i8> = None;
+
+    // When
+    const RESULT: Option<i8> = VALUE.to_i8();
+
+    // Then
+    assert!(RESULT == EXPECTED);
 }
