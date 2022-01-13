@@ -2315,6 +2315,7 @@ mod tests {
 
     #[cfg(any(feature = "std", feature = "libm"))]
     fn test_copysignf(p: f32, n: f32, nan: f32) {
+        #[cfg(not(feature = "std"))]
         use float::Float;
         use core::ops::Neg;
 
