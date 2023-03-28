@@ -5,7 +5,7 @@ use core::ops::{Add, Div, Neg};
 use core::f32;
 use core::f64;
 
-use {Num, NumCast, ToPrimitive};
+use crate::{Num, NumCast, ToPrimitive};
 
 #[cfg(all(not(feature = "std"), feature = "libm"))]
 use libm;
@@ -2276,6 +2276,7 @@ float_const_impl! {
 #[cfg(test)]
 mod tests {
     use core::f64::consts;
+    use crate::float::{self, Float};
 
     const DEG_RAD_PAIRS: [(f64, f64); 7] = [
         (0.0, 0.),
@@ -2305,8 +2306,6 @@ mod tests {
     #[test]
     fn convert_deg_rad_std() {
         for &(deg, rad) in &DEG_RAD_PAIRS {
-            use Float;
-
             assert!((Float::to_degrees(rad) - deg).abs() < 1e-6);
             assert!((Float::to_radians(deg) - rad).abs() < 1e-6);
 
@@ -2321,8 +2320,6 @@ mod tests {
     // To avoid the failure, the test is limited to `no_std` builds.
     #[cfg(not(feature = "std"))]
     fn to_degrees_rounding() {
-        use float::FloatCore;
-
         assert_eq!(
             FloatCore::to_degrees(1_f32),
             57.2957795130823208767981548141051703
@@ -2378,7 +2375,7 @@ mod tests {
     }
 
     #[cfg(any(feature = "std", feature = "libm"))]
-    fn test_copysign_generic<F: ::float::Float + core::fmt::Debug>(p: F, n: F, nan: F) {
+    fn test_copysign_generic<F: float::Float + core::fmt::Debug>(p: F, n: F, nan: F) {
         assert!(p.is_sign_positive());
         assert!(n.is_sign_negative());
         assert!(nan.is_nan());
